@@ -7,6 +7,7 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
 
@@ -29,6 +30,7 @@ namespace ME3Inventory
         private void Form1_Load(object sender, EventArgs e)
         {
             btnGo.Enabled = false;
+            Directory.CreateDirectory(ARCHIVE);
 
             if (!String.IsNullOrWhiteSpace(settings.LastPlatform))
             {
@@ -63,7 +65,8 @@ namespace ME3Inventory
         {
             btnGo.Enabled = false;
             GetData();
-            lstArchive.SelectedIndex = 0;
+            if(lstArchive.Items.Count > 0)
+                lstArchive.SelectedIndex = 0;
             btnGo.Enabled = true;
         }
 
@@ -205,7 +208,7 @@ namespace ME3Inventory
             else
                 btnGo.Enabled = true;
             
-            foreach (String file in Directory.GetFiles(ARCHIVE, "*.xml").Where(s => s.Contains(String.Format("{0}-{1}", txtName.Text, ((String)cmbPlatform.SelectedItem).ToLower()))).OrderByDescending(s => s))
+            foreach (String file in Directory.GetFiles(ARCHIVE, "*.xml").Where(s => s.ToLower().Contains(String.Format("{0}-{1}", txtName.Text.ToLower(), ((String)cmbPlatform.SelectedItem).ToLower()))).OrderByDescending(s => s))
             {
                 lstArchive.Items.Add(new ArchiveFile(file));
             }
@@ -230,8 +233,15 @@ namespace ME3Inventory
             response.Close();
             responseStream.Close();
 
-            XDocument doc = XDocument.Parse(Regex.Match(html, "(<div id=\"inventory\">[\\s\\S]*?)<div class=\"clear\"></div>").Groups[1].Value);
-            Save(doc);
+            try
+            {
+                XDocument doc = XDocument.Parse(Regex.Match(html, "(<div id=\"inventory\">[\\s\\S]*?)<div class=\"clear\"></div>").Groups[1].Value);
+                Save(doc);
+            }
+            catch (XmlException)
+            {
+                MessageBox.Show("Trouble retrieving data, double check user name and platform.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error); 
+            }
         }
 
         private List<Item> ParseData(ArchiveFile file)
@@ -261,9 +271,11 @@ namespace ME3Inventory
             using (StringWriter sw = new StringWriter())
             {
                 doc.Save(sw);
-                String latest = Directory.GetFiles(ARCHIVE, "*.xml").Where(s => s.Contains(String.Format("{0}-{1}", txtName.Text, ((String)cmbPlatform.SelectedItem).ToLower()))).OrderByDescending(s => s).First();
                 String output = sw.ToString();
-                if (output != File.ReadAllText(latest))
+
+                String latest = Directory.GetFiles(ARCHIVE, "*.xml").Where(s => s.ToLower().Contains(String.Format("{0}-{1}", txtName.Text.ToLower(), ((String)cmbPlatform.SelectedItem).ToLower()))).OrderByDescending(s => s).FirstOrDefault();
+                
+                if (String.IsNullOrEmpty(latest) || output != File.ReadAllText(latest))
                 {
                     String path = Path.Combine(ARCHIVE, String.Format("{0}-{1}-{2:yyyy-MM-dd-HH-mm-ss}.xml", txtName.Text, cmbPlatform.SelectedItem.ToString().ToLower(), DateTime.Now));
                     File.WriteAllText(path, output);
