@@ -26,6 +26,10 @@ namespace ME3Inventory
             //duplicate names
             if (type == ItemType.Character && (Name == "Quarian Engineer" || Name == "Quarian Infiltrator") && node.Element("img").Attribute("src").Value.Contains("QuarianMale"))
                 Name = Name.Replace(" ", " Male ");
+
+            //name changed?
+            if( Name == "Vulnerability")
+                Name = "Vulnerability VI";
         }
 
         public override String ToString()
